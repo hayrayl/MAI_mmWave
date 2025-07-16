@@ -68,8 +68,8 @@ class CNN_LSTM_Model(nn.Module):
         return out
 
 
-def train_model(train_loader, val_loader, device):
-    model = CNN_LSTM_Model().to(device)
+def train_model(train_loader, val_loader, device, model_architecture):
+    model = model_architecture().to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
