@@ -2,3 +2,18 @@
 .idea/
 ./mmWaveHAR4/wo_left_right
 ./mmWaveHAR4/infocom24_dataset.npz
+
+# Ignore Python's compiled bytecode
+__pycache__/
+
+# Ignore datasets and large data files
+*.npz
+
+# Ignore trained model files
+*.pth
+
+# Ignore text-based results and reports
+*.txt
+
+# Ignore image-based results
+*.png
