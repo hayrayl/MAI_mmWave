@@ -1,0 +1,4 @@
+# PyCharm specific files
+.idea/
+./mmWaveHAR4/wo_left_right
+./mmWaveHAR4/infocom24_dataset.npz
