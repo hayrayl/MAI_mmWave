@@ -12,35 +12,10 @@ import torch
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, roc_auc_score
 from torch.utils.data import DataLoader
-from data_loader import HAR_Dataset
-from model_trainer import train_model, CNN_LSTM_Model 
-from shadow_models_dataset import extract_softmax_features  
+from mmWaveHAR4.data_loader import HAR_Dataset
+from mmWaveHAR4.model_trainer import train_model, CNN_LSTM_Model
+from shadow_models.SM_data_generation import extract_softmax_features, load_raw_data
 from sklearn.model_selection import train_test_split
-
-def load_target_data():
-    """Loads full HAR dataset and splits into train/test for the real target model."""
-    doc = np.load('infocom24_dataset.npz')
-    data, raw_labels = doc['data'], doc['label']
-
-    label_map = {'push': 0, 'pull': 1, 'clockwise': 2, 'anticlockwise': 3}
-    filtered_data, mapped_labels = [], []
-
-    for d, l in zip(data, raw_labels):
-        if l in label_map:
-            filtered_data.append(d)
-            mapped_labels.append(label_map[l])
-
-    data = np.array(filtered_data)
-    labels = np.array(mapped_labels)
-
-    # Split real target data into 50/50 train/test
-    from sklearn.model_selection import train_test_split
-    train_data, test_data, train_labels, test_labels = train_test_split(
-        data, labels, test_size=0.5, stratify=labels, random_state=1337
-    )
-
-    return train_data, train_labels, test_data, test_labels
-
 
 def main():
     print("=== ATTACK MODEL ===")
@@ -48,37 +23,45 @@ def main():
 
     # === Step 1: Train the attack model from shadow dataset ===
     print("\n[1] Training attack model from shadow_dataset.npz...")
-    shadow = np.load("shadow_dataset.npz")
+    shadow = np.load("./shadow_models/shadow_dataset.npz")
     X, y = shadow["features"], shadow["labels"]
 
-    X_train, X_val, y_train, y_val = train_test_split(
+    x_train, x_val, y_train, y_val = train_test_split(
         X, y, test_size=0.2, stratify=y, random_state=42
     )
 
     attack_model = LogisticRegression(max_iter=1000)
-    attack_model.fit(X_train, y_train)
+    attack_model.fit(x_train, y_train)
 
-    y_pred = attack_model.predict(X_val)
-    y_score = attack_model.predict_proba(X_val)[:, 1]
+    y_pred = attack_model.predict(x_val)
+    y_score = attack_model.predict_proba(x_val)[:, 1]
 
     print("Attack model trained.")
     print(classification_report(y_val, y_pred))
     print("AUC Score:", roc_auc_score(y_val, y_score))
 
+
+
     print("\n[2] Training target model...")
-    train_data, train_labels, test_data, test_labels = load_target_data()
+
+    data, labels = load_raw_data("./mmWaveHAR4/infocom24_dataset.npz")
+    train_data, test_data, train_labels, test_labels = train_test_split(
+        data, labels, test_size=0.5, stratify=labels, random_state=1337
+    )
 
     # DEBUG: Use only a small subset for fast training 
     # We can change this as needed later
-    train_data = train_data[:100]
-    train_labels = train_labels[:100]
-    test_data = test_data[:100]
-    test_labels = test_labels[:100]
+    train_data = train_data[:1000]
+    train_labels = train_labels[:1000]
+    test_data = test_data[:1000]
+    test_labels = test_labels[:1000]
+    globalmax = np.max(train_data)
+    globalmin = np.min(train_data)
 
-    target_train_loader = DataLoader(HAR_Dataset(train_data, train_labels), batch_size=16, shuffle=True)
-    target_test_loader = DataLoader(HAR_Dataset(test_data, test_labels), batch_size=16, shuffle=False)
+    target_train_loader = DataLoader(HAR_Dataset(train_data, (globalmin, globalmax), train_labels), batch_size=16, shuffle=True)
+    target_test_loader = DataLoader(HAR_Dataset(test_data, (globalmin, globalmax), test_labels), batch_size=16, shuffle=False)
 
-    target_model = train_model(target_train_loader, target_test_loader, device)
+    target_model = train_model(target_train_loader, target_test_loader, device, CNN_LSTM_Model)
 
     # === Step 3: Extract softmax features from target model ===
     print("\n[3] Extracting features from target model...")
@@ -95,8 +78,11 @@ def main():
 
     # === Step 4: Run the attack on the target model ===
     print("\n[4] Running attack on target model outputs...")
-    pred_membership = attack_model.predict(features)
-    pred_probs = attack_model.pr
+    pred_membership = attack_model.predict_proba(features)
+    print(pred_membership)
+    scores = attack_model.score(features, labels)
+    print(scores)
+
 
 if __name__ == "__main__":
     main()
