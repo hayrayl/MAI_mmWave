@@ -1,9 +1,7 @@
 """
-Trains an attack model using softmax outputs from shadow models (in shadow_dataset.npz),
-then applies it to the target model's outputs to infer membership.
+applies trained attack model to the target model's outputs to infer membership.
 
 Expected:
-- shadow_dataset.npz (from extract_shadow_features.py)
 - target_model trained on real HAR data (from model_trainer.py)
 """
 
@@ -16,33 +14,15 @@ from mmWaveHAR4.data_loader import HAR_Dataset
 from mmWaveHAR4.model_trainer import train_model, CNN_LSTM_Model
 from shadow_models.SM_data_generation import extract_softmax_features, load_raw_data
 from sklearn.model_selection import train_test_split
+import joblib
 
 def main():
-    print("=== ATTACK MODEL ===")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # === Step 1: Train the attack model from shadow dataset ===
-    print("\n[1] Training attack model from shadow_dataset.npz...")
-    shadow = np.load("./shadow_models/shadow_dataset.npz")
-    X, y = shadow["features"], shadow["labels"]
+    attack_model = joblib.load("attack_model.pkl")
+    print("Attack model loaded in")
 
-    x_train, x_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.2, stratify=y, random_state=42
-    )
-
-    attack_model = LogisticRegression(max_iter=1000)
-    attack_model.fit(x_train, y_train)
-
-    y_pred = attack_model.predict(x_val)
-    y_score = attack_model.predict_proba(x_val)[:, 1]
-
-    print("Attack model trained.")
-    print(classification_report(y_val, y_pred))
-    print("AUC Score:", roc_auc_score(y_val, y_score))
-
-
-
-    print("\n[2] Training target model...")
+    print("\n[1] Training target model...")
 
     data, labels = load_raw_data("./mmWaveHAR4/infocom24_dataset.npz")
     train_data, test_data, train_labels, test_labels = train_test_split(
@@ -51,10 +31,10 @@ def main():
 
     # DEBUG: Use only a small subset for fast training 
     # We can change this as needed later
-    train_data = train_data[:1000]
-    train_labels = train_labels[:1000]
-    test_data = test_data[:1000]
-    test_labels = test_labels[:1000]
+    #train_data = train_data[:1000]
+    #train_labels = train_labels[:1000]
+    #test_data = test_data[:1000]
+    #test_labels = test_labels[:1000]
     globalmax = np.max(train_data)
     globalmin = np.min(train_data)
 
@@ -64,7 +44,7 @@ def main():
     target_model = train_model(target_train_loader, target_test_loader, device, CNN_LSTM_Model)
 
     # === Step 3: Extract softmax features from target model ===
-    print("\n[3] Extracting features from target model...")
+    print("\n[2] Extracting features from target model...")
     all_target_data = np.concatenate([train_data, test_data])
     all_target_labels = np.concatenate([train_labels, test_labels])
     member_flags = np.concatenate([
@@ -77,11 +57,13 @@ def main():
     )
 
     # === Step 4: Run the attack on the target model ===
-    print("\n[4] Running attack on target model outputs...")
-    pred_membership = attack_model.predict_proba(features)
-    print(pred_membership)
-    scores = attack_model.score(features, labels)
-    print(scores)
+    print("\n[3] Running attack on target model outputs...")
+    pred_labels = attack_model.predict(features)
+    pred_scores = attack_model.predict_proba(features)[:, 1]
+
+    print(classification_report(labels, pred_labels))
+    print("Attack AUC on target model:", roc_auc_score(labels, pred_scores))
+    print("Attack accuracy on target model:", attack_model.score(features, labels))
 
 
 if __name__ == "__main__":
