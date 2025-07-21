@@ -13,6 +13,7 @@ from mmWaveHAR4.model_trainer import train_model, CNN_LSTM_Model
 from shadow_models.SM_data_generation import extract_softmax_features, load_raw_data
 from sklearn.model_selection import train_test_split
 import joblib
+import utils
 
 def main():
     print("=== ATTACK MODEL ===")

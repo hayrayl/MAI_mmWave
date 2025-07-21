@@ -1,0 +1,8 @@
+{
+  "subset_size" : 0.1,
+  "num_shadows" : 8,
+  "perturb_fraction" : 0.15,
+  "noise_fraction" : 0.15,
+  "shadow_architecture" : "CNN_LSTM_Model",
+  "attack_architecture" : "Logistic_Regression"
+}

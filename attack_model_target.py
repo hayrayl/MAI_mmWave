@@ -10,6 +10,8 @@ import torch
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, roc_auc_score
 from torch.utils.data import DataLoader
+
+import utils
 from mmWaveHAR4.data_loader import HAR_Dataset
 from mmWaveHAR4.model_trainer import train_model, CNN_LSTM_Model
 from shadow_models.SM_data_generation import extract_softmax_features, load_raw_data
