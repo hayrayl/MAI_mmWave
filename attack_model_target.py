@@ -24,39 +24,12 @@ def main():
     attack_model = joblib.load("attack_model.pkl")
     print("Attack model loaded in")
 
-    print("\n[1] Training target model...")
 
-    data, labels = load_raw_data("./mmWaveHAR4/infocom24_dataset.npz")
-    train_data, test_data, train_labels, test_labels = train_test_split(
-        data, labels, test_size=0.5, stratify=labels, random_state=1337
-    )
+    target_model = CNN_LSTM_Model().to(device)
+    target_model.load_state_dict(torch.load('target_model.pth', weights_only=True, map_location=device))
+    print("target model loaded in")
 
-    # DEBUG: Use only a small subset for fast training 
-    # We can change this as needed later
-    #train_data = train_data[:1000]
-    #train_labels = train_labels[:1000]
-    #test_data = test_data[:1000]
-    #test_labels = test_labels[:1000]
-    globalmax = np.max(train_data)
-    globalmin = np.min(train_data)
-
-    target_train_loader = DataLoader(HAR_Dataset(train_data, (globalmin, globalmax), train_labels), batch_size=16, shuffle=True)
-    target_test_loader = DataLoader(HAR_Dataset(test_data, (globalmin, globalmax), test_labels), batch_size=16, shuffle=False)
-
-    target_model = train_model(target_train_loader, target_test_loader, device, CNN_LSTM_Model)
-
-    # === Step 3: Extract softmax features from target model ===
-    print("\n[2] Extracting features from target model...")
-    all_target_data = np.concatenate([train_data, test_data])
-    all_target_labels = np.concatenate([train_labels, test_labels])
-    member_flags = np.concatenate([
-        np.ones(len(train_data), dtype=int),   # training set = member
-        np.zeros(len(test_data), dtype=int)    # test set = non-member
-    ])
-
-    features, labels = extract_softmax_features(
-        target_model, all_target_data, all_target_labels, member_flags, device
-    )
+    features, labels = load_raw_data('attack_on_target_dataset.npz')
 
     # === Step 4: Run the attack on the target model ===
     print("\n[3] Running attack on target model outputs...")
