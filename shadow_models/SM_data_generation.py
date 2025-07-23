@@ -21,7 +21,7 @@ import shadow_models as SM
 from sklearn.model_selection import train_test_split
 from utils import *
 
-#function to load in rad data; abstracted out for modularity purposes
+#function to load in raw data; abstracted out for modularity purposes
 def load_raw_data(source):
     print("##################### LOADING RAW DATA #####################")
     doc = np.load(source)  # Load dataset from .npz file

@@ -14,6 +14,8 @@ from shadow_models.SM_data_generation import extract_softmax_features, load_raw_
 from sklearn.model_selection import train_test_split
 import joblib
 import utils
+from sklearn.neural_network import MLPClassifier
+from sklearn.ensemble import RandomForestClassifier
 
 def main():
     print("=== ATTACK MODEL ===")
@@ -26,13 +28,16 @@ def main():
     
     # print(np.bincount(y)) We will test this later
 
-
     x_train, x_val, y_train, y_val = train_test_split(
         X, y, test_size=0.2, stratify=y, random_state=42
     )
 
-    attack_model = LogisticRegression(max_iter=10000, class_weight="balanced")
+    # Replace LogisticRegression with MLPClassifier
+    attack_model = MLPClassifier(hidden_layer_sizes=(100, 50), max_iter=1000, random_state=42)
     attack_model.fit(x_train, y_train)
+
+    #attack_model = RandomForestClassifier(n_estimators=100, class_weight="balanced", random_state=42)
+    #attack_model.fit(x_train, y_train)
 
     y_pred = attack_model.predict(x_val)
     y_score = attack_model.predict_proba(x_val)
