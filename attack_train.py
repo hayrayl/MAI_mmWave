@@ -15,6 +15,11 @@ from shadow_models.SM_data_generation import extract_softmax_features, load_raw_
 from sklearn.model_selection import train_test_split
 import joblib
 import utils
+from sklearn.neural_network import MLPClassifier
+from sklearn.ensemble import RandomForestClassifier
+
+
+
 def main():
     print("=== ATTACK MODEL ===")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -39,6 +44,8 @@ def main():
 
     # Train attack model
     from sklearn.ensemble import RandomForestClassifier
+
+    # attack_model = MLPClassifier(hidden_layer_sizes=(100, 50), max_iter=1000, random_state=42)
     attack_model = RandomForestClassifier(n_estimators=100, class_weight="balanced", random_state=42)
     attack_model.fit(x_train, y_train)
 
