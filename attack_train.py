@@ -1,6 +1,7 @@
 """
 Trains an attack model using softmax outputs from shadow models (in shadow_dataset.npz),
 then applies it to the target model's outputs to infer membership.
+Uses random forest classifier to do this.
 """
 
 import numpy as np
@@ -14,35 +15,44 @@ from shadow_models.SM_data_generation import extract_softmax_features, load_raw_
 from sklearn.model_selection import train_test_split
 import joblib
 import utils
-
 def main():
     print("=== ATTACK MODEL ===")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # === Step 1: Train the attack model from shadow dataset ===
+    # Step 1: Load shadow dataset
     print("\n[1] Training attack model from shadow_dataset.npz...")
     shadow = np.load("./shadow_models/shadow_dataset.npz")
     X, y = shadow["features"], shadow["labels"]
-    
-    # print(np.bincount(y)) We will test this later
 
+    print(np.bincount(y))
+    print("First few feature vectors (X):")
+    print(X[:5])
+    print("Full dataset class distribution:", np.bincount(y))
 
+    # Split data
     x_train, x_val, y_train, y_val = train_test_split(
         X, y, test_size=0.2, stratify=y, random_state=42
     )
 
-    attack_model = LogisticRegression(max_iter=10000, class_weight="balanced")
+    print("Train class distribution:", np.bincount(y_train))
+    print("Val class distribution:", np.bincount(y_val))
+
+    # Train attack model
+    from sklearn.ensemble import RandomForestClassifier
+    attack_model = RandomForestClassifier(n_estimators=100, class_weight="balanced", random_state=42)
     attack_model.fit(x_train, y_train)
 
+    # Evaluate
     y_pred = attack_model.predict(x_val)
-    y_score = attack_model.predict_proba(x_val)
+    y_score = attack_model.predict_proba(x_val)  # shape: (n_samples, 2)
 
     print("Attack model trained.")
-    print(classification_report(y_val, y_pred))
-    print("AUC Score:", roc_auc_score(y_val, y_score))
+    print(classification_report(y_val, y_pred, zero_division=0))
+    print("AUC Score:", roc_auc_score(y_val, y_score[:, 1]))
 
+    # Save model
     joblib.dump(attack_model, "attack_model.pkl")
-    print("Attack model saved to 'attack_model.plk'")
+    print("Attack model saved to 'attack_model.pkl'")
 
 if __name__ == "__main__":
     main()
