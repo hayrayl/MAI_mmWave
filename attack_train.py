@@ -28,11 +28,11 @@ def main():
         X, y, test_size=0.2, stratify=y, random_state=42
     )
 
-    attack_model = LogisticRegression(max_iter=1000)
+    attack_model = LogisticRegression(max_iter=10000, class_weight="balanced")
     attack_model.fit(x_train, y_train)
 
     y_pred = attack_model.predict(x_val)
-    y_score = attack_model.predict_proba(x_val)[:, 1]
+    y_score = attack_model.predict_proba(x_val)
 
     print("Attack model trained.")
     print(classification_report(y_val, y_pred))

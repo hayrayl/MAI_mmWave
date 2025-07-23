@@ -13,15 +13,18 @@ import torch
 import numpy as np
 import os
 from torch.utils.data import DataLoader
-from data_loader import HAR_Dataset
-from model_trainer import CNN_LSTM_Model, train_model
+
+import utils
+from mmWaveHAR4.data_loader import HAR_Dataset
+from mmWaveHAR4.model_trainer import CNN_LSTM_Model, train_model
 import shadow_models as SM
 from sklearn.model_selection import train_test_split
+from utils import *
 
 #function to load in rad data; abstracted out for modularity purposes
-def load_raw_data():
+def load_raw_data(source):
     print("##################### LOADING RAW DATA #####################")
-    doc = np.load('infocom24_dataset.npz')  # Load dataset from .npz file
+    doc = np.load(source)  # Load dataset from .npz file
     data, raw_labels = doc['data'], doc['label']  # Extract data and labels
 
     print("\r.", end='')
@@ -48,7 +51,7 @@ def load_raw_data():
 # given initial dataset, number of shadow models, desired size of training subset per shadow, and perturbation fraction,
 # we create a noisy dataset that can be decomposed into all the 
 
-def noisy_data_generation(data, labels, num_shadows, sample_fraction=1.0, perturb_fraction=0.15, seed=None):
+def noisy_data_generation(data, labels, num_shadows, sample_fraction=1.0, perturb_fraction=0.15,  noise_fraction=0.15, seed=None):
     print("##################### GENERATING NOISY DATA #####################")
     if seed is not None:
         np.random.seed(seed)
@@ -64,7 +67,7 @@ def noisy_data_generation(data, labels, num_shadows, sample_fraction=1.0, pertur
     noisy_labels = []
 
     for shadow_i in range(num_shadows):
-        print(f"Generating data for shadow {shadow_i+1}/{num_shadows}", end="\r")
+        print(f"Generating data for shadow {shadow_i+1}/{num_shadows}")
         
         sample_indx = np.random.choice(n, sample_size, replace=False)
         temp_copy = data[sample_indx].copy()
@@ -74,7 +77,7 @@ def noisy_data_generation(data, labels, num_shadows, sample_fraction=1.0, pertur
             x, y, z = np.unravel_index(flat_inds, (dshape[1], dshape[2], dshape[3]))
 
             for j in range(noise_features):
-                fudgefactor = np.random.uniform(-0.15, 0.15)
+                fudgefactor = np.random.uniform(-noise_fraction, noise_fraction)
                 temp_copy[i, x[j], y[j], z[j]] *= (1 + fudgefactor)
 
         noisy_dataset.append(temp_copy)
@@ -151,32 +154,41 @@ def extract_softmax_features(model, data, labels, member_flags, device='cpu'):
 
     return np.array(features), np.array(membership_labels)  # Return as numpy arrays
 
-
-SUBSET_FRAC = 0.03
-NUM_SHADOWS = 2
-
 def main():
     print("=== SHADOW MODEL FEATURE EXTRACTION ===")
     # Select device: use GPU if available, otherwise CPU
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"\u2713 Using device: {device}")
 
+    params = utils.read_json("../params.json")
+    subset_frac = params["subset_size"]
+    num_shadows = params["num_shadows"]
+
     # Load and preprocess data
-    filtered_data, mapped_labels = load_raw_data()
+    filtered_data, mapped_labels = load_raw_data("../mmWaveHAR4/infocom24_dataset.npz")
 
     # Use only 3% of the total dataset for shadow model training and feature extraction
     total_samples = len(filtered_data)
-    subset_size = int(SUBSET_FRAC * total_samples)
+    subset_size = int(subset_frac * total_samples)
     np.random.seed(42)
     subset_indices = np.random.choice(total_samples, size=subset_size, replace=False)
     filtered_data = filtered_data[subset_indices]
     mapped_labels = mapped_labels[subset_indices]
     
     ## here we generate the noisy dataset, primed for the NUMSHADOWS
-    noised_dataset, noised_dataset_labels = noisy_data_generation(filtered_data, mapped_labels, NUM_SHADOWS)
+    noised_dataset, noised_dataset_labels = noisy_data_generation(filtered_data,
+                                                                  mapped_labels,
+                                                                  num_shadows,
+                                                                  1.0,
+                                                                  params["perturb_fraction"],
+                                                                  params["noise_fraction"])
 
     # Train fewer shadow models (e.g., 1)
-    model_packages = train_multiple_shadows(noised_dataset, noised_dataset_labels, NUM_SHADOWS, device, CNN_LSTM_Model) 
+    model_packages = train_multiple_shadows(noised_dataset,
+                                            noised_dataset_labels,
+                                            num_shadows,
+                                            device,
+                                            CNN_LSTM_Model)
 
     # For each shadow model, extract features and membership labels
     all_features = []

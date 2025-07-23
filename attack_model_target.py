@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 import utils
 from mmWaveHAR4.data_loader import HAR_Dataset
 from mmWaveHAR4.model_trainer import train_model, CNN_LSTM_Model
-from shadow_models.SM_data_generation import extract_softmax_features, load_raw_data
+from shadow_models.SM_data_generation_test import extract_softmax_features, load_raw_data
 from sklearn.model_selection import train_test_split
 import joblib
 
@@ -29,7 +29,11 @@ def main():
     target_model.load_state_dict(torch.load('target_model.pth', weights_only=True, map_location=device))
     print("target model loaded in")
 
-    features, labels = load_raw_data('attack_on_target_dataset.npz')
+    # Load the .npz file directly and use the correct keys
+    print("Loading attack data from 'attack_on_target_dataset.npz'")
+    attack_data = np.load('attack_on_target_dataset.npz')
+    features = attack_data['features']
+    labels = attack_data['labels']
 
     # === Step 4: Run the attack on the target model ===
     print("\n[3] Running attack on target model outputs...")
