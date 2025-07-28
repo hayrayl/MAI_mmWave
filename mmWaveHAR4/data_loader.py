@@ -21,11 +21,8 @@ class HAR_Dataset(Dataset):
 
 def load_data(skip_list):
 
-    doc = np.load('/Users/aszlant/VSC0de/mmWaveHAR42/infocom24_dataset.npz')
+    doc = np.load('./mmWaveHAR4/infocom24_dataset.npz')
     data, labels = doc['data'], doc['label']
-    print(data.shape)
-    print(labels.shape)
-
 
     mapping = {'push': 0, 'pull': 1, 'clockwise': 2, 'anticlockwise': 3}
 
@@ -73,7 +70,7 @@ def load_data(skip_list):
     print(f"  Validation: {len(val_dataset)} samples ({len(val_dataset)/(len(train_dataset)+len(val_dataset)+len(test_dataset))*100:.1f}%)")
     print(f"  Test: {len(test_dataset)} samples ({len(test_dataset)/(len(train_dataset)+len(val_dataset)+len(test_dataset))*100:.1f}%)")
 
-    return train_loader, val_loader, test_loader, train_referent, val_referent, test_referent,  x_val[0]
+    return train_loader, val_loader, test_loader, x_train, x_test, y_train,  y_test
 
 
 class HAR_query(Dataset):

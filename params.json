@@ -1,6 +1,6 @@
 {
-  "subset_size" : 0.8,
-  "num_shadows" : 16,
+  "subset_size" : 0.5,
+  "num_shadows" : 8,
   "perturb_fraction" : 0.15,
   "noise_fraction" : 0.05,
   "shadow_architecture" : "CNN_LSTM_Model",

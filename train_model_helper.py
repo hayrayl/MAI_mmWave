@@ -5,20 +5,34 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, roc_auc_score
 from torch.utils.data import DataLoader
 
-import utils
 from mmWaveHAR4.data_loader import HAR_Dataset
 from mmWaveHAR4.model_trainer import train_model, CNN_LSTM_Model
-from shadow_models.SM_data_generation import extract_softmax_features, load_raw_data
 from sklearn.model_selection import train_test_split
+import mmWaveHAR4.data_loader as loader
 import joblib
+
+def extract_softmax_features(model, data, labels, member_flags, device='cpu'):
+    model.eval()  # Set model to evaluation mode
+    dataset = HAR_Dataset(data, (np.min(data), np.max(data)), labels)  # Wrap data in custom PyTorch dataset
+    loader = DataLoader(dataset, batch_size=16, shuffle=False)  # No shuffling for consistent order
+
+    features, membership_labels = [], []  # Lists to store softmax outputs and membership labels
+    i = 0  # Index to track position in member_flags
+
+    with torch.no_grad():  # Disable gradient computation for inference
+        for batch_x, _ in loader:
+            batch_x = batch_x.to(device)  # Move batch to device
+            outputs = model(batch_x)  # Get model logits
+            probs = outputs.cpu().numpy()  # Convert logits to softmax probabilities
+            features.extend(probs.tolist())  # Store softmax vectors
+            membership_labels.extend(member_flags[i:i + len(batch_x)])  # Store corresponding membership labels
+            i += len(batch_x)  # Update index
+
+    return np.array(features), np.array(membership_labels)  # Return as numpy arrays
 
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    data, labels = load_raw_data("./mmWaveHAR4/infocom24_dataset.npz")
-    train_data, test_data, train_labels, test_labels = train_test_split(
-        data, labels, test_size=0.5, stratify=labels, random_state=1337
-    )
 
     # DEBUG: Use only a small subset for fast training
     # We can change this as needed later
@@ -26,23 +40,20 @@ def main():
     #train_labels = train_labels[:1000]
     #test_data = test_data[:1000]
     #test_labels = test_labels[:1000]
-    globalmax = np.max(train_data)
-    globalmin = np.min(train_data)
 
-    target_train_loader = DataLoader(HAR_Dataset(train_data, (globalmin, globalmax), train_labels), batch_size=16, shuffle=True)
-    target_test_loader = DataLoader(HAR_Dataset(test_data, (globalmin, globalmax), test_labels), batch_size=16, shuffle=False)
+    train_loader, val_loader, test_loader, x_train, x_test, y_train, y_test = loader.load_data(['left', 'right'])
 
-    target_model = train_model(target_train_loader, target_test_loader, device, CNN_LSTM_Model)
+    target_model = train_model(train_loader, val_loader, device, CNN_LSTM_Model)
     model_path = './target_model.pth'
     torch.save(target_model.state_dict(), model_path)
     print(f"✓ Model saved to: {model_path}")
 
     print("\n[2] Extracting features from target model...")
-    all_target_data = np.concatenate([train_data, test_data])
-    all_target_labels = np.concatenate([train_labels, test_labels])
+    all_target_data = np.concatenate([x_train, x_test])
+    all_target_labels = np.concatenate([y_train, y_test])
     member_flags = np.concatenate([
-        np.ones(len(train_data), dtype=int),  # training set = member
-        np.zeros(len(test_data), dtype=int)  # test set = non-member
+        np.ones(len(x_train), dtype=int),  # training set = member
+        np.zeros(len(x_test), dtype=int)  # test set = non-member
     ])
 
     features, labels = extract_softmax_features(
@@ -52,7 +63,7 @@ def main():
     features = np.array(features)
     labels = np.array(labels)
 
-    save_path = "attack_on_target_dataset.npz"
+    save_path = "attack_on_target_dataset_no_softmax.npz"
     np.savez(save_path, features=features, labels=labels)
     print(f"\n\u2713 Extracted features shape: {features.shape}")
     print(f"\u2713 Saved target dataset to: {save_path}")

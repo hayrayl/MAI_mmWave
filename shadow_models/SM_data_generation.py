@@ -22,29 +22,64 @@ from sklearn.model_selection import train_test_split
 from utils import *
 
 #function to load in raw data; abstracted out for modularity purposes
-def load_raw_data(source):
-    print("##################### LOADING RAW DATA #####################")
-    doc = np.load(source)  # Load dataset from .npz file
-    data, raw_labels = doc['data'], doc['label']  # Extract data and labels
+def load_raw_data_from_dir(raw_dir, distance=None, angle=None):
+    """
+    Load and filter .npy files based on pose, distance, and angle from filenames.
 
-    print("\r.", end='')
-    # Map string labels to integer class indices
+    Args:
+        raw_dir (str): Directory containing .npy files.
+        distance (float or None): Only load samples with this distance. None means no filtering.
+        angle (int or None): Only load samples with this angle. None means no filtering.
+
+    Returns:
+        data (np.ndarray): Loaded and filtered sample data.
+        labels (np.ndarray): Corresponding class labels.
+    """
+    print("##################### LOADING RAW DATA FROM DIR #####################")
+
     label_map = {'push': 0, 'pull': 1, 'clockwise': 2, 'anticlockwise': 3}
-    filtered_data, mapped_labels = [], []
+    data, labels = [], []
 
-    # Filter out samples not in label_map and map labels to integers
-    for d, l in zip(data, raw_labels):
-        if l in label_map:
-            filtered_data.append(d)
-            mapped_labels.append(label_map[l])
-    print("\b\r..",end='')
+    for fname in os.listdir(raw_dir):
+        if not fname.endswith('.npy'):
+            continue
 
-    filtered_data = np.array(filtered_data)
-    mapped_labels = np.array(mapped_labels)
-    print("\b\b\r...")
-    print("##################### RAW DATA LOADED #####################\n\n")
+        try:
+            pose = fname.split("pose=")[1].split("_")[0]
+            file_angle = int(fname.split("angle=")[1].split("_")[0])
+            file_dist = float(fname.split("dist=")[1].split("_")[0])
+        except (IndexError, ValueError):
+            print(f"Skipping malformed filename: {fname}")
+            continue
 
-    return filtered_data, mapped_labels
+        if pose not in label_map:
+            print(f"Skipping unknown pose: {pose}")
+            continue
+
+        # Filter by distance and angle if specified
+        if distance is not None and not np.isclose(file_dist, distance, atol=1e-2):
+            continue
+        if angle is not None and file_angle != angle:
+            continue
+
+        full_path = os.path.join(raw_dir, fname)
+        sample = np.load(full_path)
+
+        data.append(sample)
+        labels.append(label_map[pose])
+
+    data = np.array(data)
+    labels = np.array(labels)
+
+    print(f"\n\u2713 Loaded {len(data)} samples with distance={distance} and angle={angle}")
+    print("##################### DATA LOADING COMPLETE #####################\n")
+    return data, labels
+
+
+    print(f"\n\u2713 Loaded {len(data)} samples with fixed distance={fixed_distance}")
+    print("##################### DATA LOADING COMPLETE #####################\n")
+    return data, labels
+
 
 
 ## function to generate a noisy dataset for shadow train testing
@@ -147,7 +182,7 @@ def extract_softmax_features(model, data, labels, member_flags, device='cpu'):
         for batch_x, _ in loader:
             batch_x = batch_x.to(device)  # Move batch to device
             outputs = model(batch_x)  # Get model logits
-            probs = torch.nn.functional.softmax(outputs, dim=1).cpu().numpy()  # Convert logits to softmax probabilities
+            probs = outputs.numpy()  # Convert logits to softmax probabilities
             features.extend(probs.tolist())  # Store softmax vectors
             membership_labels.extend(member_flags[i:i + len(batch_x)])  # Store corresponding membership labels
             i += len(batch_x)  # Update index
@@ -155,17 +190,24 @@ def extract_softmax_features(model, data, labels, member_flags, device='cpu'):
     return np.array(features), np.array(membership_labels)  # Return as numpy arrays
 
 def main():
+
+    subset_frac = 0.03
+    num_shadows = 2
+
     print("=== SHADOW MODEL FEATURE EXTRACTION ===")
     # Select device: use GPU if available, otherwise CPU
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"\u2713 Using device: {device}")
 
-    params = utils.read_json("../params.json")
-    subset_frac = params["subset_size"]
-    num_shadows = params["num_shadows"]
+    params_path = 'params.json'
+    if not os.path.exists(params_path):
+        raise FileNotFoundError(f"Configuration file '{params_path}' not found.")
 
-    # Load and preprocess data
-    filtered_data, mapped_labels = load_raw_data("../mmWaveHAR4/infocom24_dataset.npz")
+    with open(params_path, 'r') as f:
+        params = json.load(f)
+
+    filtered_data, mapped_labels = load_raw_data_from_dir(
+        "../m/mia_dataset/mia_dataset", distance=0.8, angle=0)
 
     # Use only 3% of the total dataset for shadow model training and feature extraction
     total_samples = len(filtered_data)
@@ -218,7 +260,7 @@ def main():
     all_membership_labels = np.concatenate(all_membership_labels, axis=0)
 
     # Save to file
-    save_path = "shadow_dataset.npz"
+    save_path = "shadow_dataset_new_test.npz"
     np.savez(save_path, features=all_features, labels=all_membership_labels)
     print(f"\n\u2713 Extracted features shape: {all_features.shape}")
     print(f"\u2713 Saved shadow dataset to: {save_path}")

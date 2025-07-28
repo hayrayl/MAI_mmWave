@@ -31,7 +31,7 @@ def main():
 
     # Load the .npz file directly and use the correct keys
     print("Loading attack data from 'attack_on_target_dataset.npz'")
-    attack_data = np.load('attack_on_target_dataset.npz')
+    attack_data = np.load('attack_on_target_dataset_no_softmax.npz')
     features = attack_data['features']
     labels = attack_data['labels']
 
@@ -39,6 +39,11 @@ def main():
     print("\n[3] Running attack on target model outputs...")
     pred_labels = attack_model.predict(features)
     pred_scores = attack_model.predict_proba(features)[:, 1]
+
+    for i in range(1,4):
+        print("train", features[i])
+        print("test", features[-i])
+        print("", labels[i])
 
     print(classification_report(labels, pred_labels))
     print("Attack AUC on target model:", roc_auc_score(labels, pred_scores))

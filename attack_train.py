@@ -26,7 +26,7 @@ def main():
 
     # Step 1: Load shadow dataset
     print("\n[1] Training attack model from shadow_dataset.npz...")
-    shadow = np.load("./shadow_models/shadow_dataset.npz")
+    shadow = np.load("./shadow_models/shadow_dataset_no_softmax.npz")
     X, y = shadow["features"], shadow["labels"]
 
     print(np.bincount(y))

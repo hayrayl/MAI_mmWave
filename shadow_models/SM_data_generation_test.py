@@ -34,22 +34,23 @@ def load_raw_data(filepath='infocom24_dataset.npz'):
 
 # This function also remains the same.
 def extract_softmax_features(model, data, labels, member_flags, device='cpu'):
-    """Extracts softmax probability vectors from a model for a given dataset."""
-    model.eval()
-    dataset = HAR_Dataset(data, (np.min(data), np.max(data)), labels)
-    loader = DataLoader(dataset, batch_size=32, shuffle=False)
+    model.eval()  # Set model to evaluation mode
+    dataset = HAR_Dataset(data, (np.min(data), np.max(data)), labels)  # Wrap data in custom PyTorch dataset
+    loader = DataLoader(dataset, batch_size=16, shuffle=False)  # No shuffling for consistent order
 
-    features, membership_labels = [], []
-    i = 0
-    with torch.no_grad():
+    features, membership_labels = [], []  # Lists to store softmax outputs and membership labels
+    i = 0  # Index to track position in member_flags
+
+    with torch.no_grad():  # Disable gradient computation for inference
         for batch_x, _ in loader:
-            batch_x = batch_x.to(device)
-            outputs = model(batch_x)
-            probs = torch.nn.functional.softmax(outputs, dim=1).cpu().numpy()
-            features.extend(probs.tolist())
-            membership_labels.extend(member_flags[i:i + len(batch_x)])
-            i += len(batch_x)
-    return np.array(features), np.array(membership_labels)
+            batch_x = batch_x.to(device)  # Move batch to device
+            outputs = model(batch_x)  # Get model logits
+            probs = outputs.cpu().numpy()  # Convert logits to softmax probabilities
+            features.extend(probs.tolist())  # Store softmax vectors
+            membership_labels.extend(member_flags[i:i + len(batch_x)])  # Store corresponding membership labels
+            i += len(batch_x)  # Update index
+
+    return np.array(features), np.array(membership_labels)  # Return as numpy arrays
 
 
 def generate_shadow_attack_data(data_pool, labels_pool, num_shadows, perturb, noise, device, model_architecture):
@@ -99,14 +100,14 @@ def generate_shadow_attack_data(data_pool, labels_pool, num_shadows, perturb, no
         # 1. Create a new, random split of the data pool for each shadow model.
         # This ensures each shadow model sees different "member" vs "non-member" data.
         shadow_train_data, shadow_out_data, shadow_train_labels, shadow_out_labels = train_test_split(
-            data_copy, label_copy, test_size=0.5, stratify=label_copy, random_state=42 + i
+            data_copy, label_copy, test_size=0.15, stratify=label_copy, random_state=42 + i
         )
         print(f"  - Member set size: {len(shadow_train_data)}, Non-member set size: {len(shadow_out_data)}")
 
         # 2. Prepare DataLoaders for the "member" set to train the shadow model.
         # A further split is needed for a validation set during training.
         x_train, x_val, y_train, y_val = train_test_split(
-            shadow_train_data, shadow_train_labels, test_size=0.15, stratify=shadow_train_labels, random_state=42 + i
+            shadow_train_data, shadow_train_labels, test_size=0.176, stratify=shadow_train_labels, random_state=42 + i
         )
 
         global_min, global_max = np.min(x_train), np.max(x_train)
@@ -154,11 +155,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"\u2713 Using device: {device}")
 
-    params_path = 'params.json'
-    if not os.path.exists(params_path):
-        raise FileNotFoundError(f"Configuration file '{params_path}' not found.")
-
-    with open(params_path, 'r') as f:
+    with open('../params.json', 'r') as f:
         params = json.load(f)
 
     subset_frac = params['subset_size']
@@ -168,7 +165,7 @@ def main():
     print(f"\u2713 Loaded parameters: {num_shadows} shadow models, {subset_frac * 100}% subset size.")
 
     # Load and create a smaller data pool to work with
-    filtered_data, mapped_labels = load_raw_data("mmWaveHAR4/infocom24_dataset.npz")
+    filtered_data, mapped_labels = load_raw_data("../mmWaveHAR4/infocom24_dataset.npz")
     total_samples = len(filtered_data)
     subset_size = int(subset_frac * total_samples)
 
@@ -190,7 +187,7 @@ def main():
     )
 
     # Save the final dataset to a file, overwriting if it exists
-    save_path = "shadow_dataset.npz"
+    save_path = "shadow_dataset_no_softmax.npz"
     np.savez(save_path, features=features, labels=labels)
     print(f"\n\u2713 Attack dataset generation complete.")
     print(f"\u2713 Final features shape: {features.shape}")
