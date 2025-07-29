@@ -2,10 +2,15 @@ import os
 import torch
 import numpy as np
 import random
+
+from torch.serialization import skip_data
+
 import data_loader
 import model_trainer
 import model_tester
 import time
+
+from model_trainer import CNN_LSTM_Model
 
 
 def set_seed(seed):
@@ -34,10 +39,12 @@ def main():
         print(f"✓ GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024 ** 3:.1f} GB")
 
     # Skip labels (excluding 'left' and 'right')
-    skip_list = ['left', 'right']
+    # skip_list = ['left', 'right']
+    skip_list = []
     print(f"✓ Excluding labels: {skip_list}")
 
-    folder = 'wo_' + '_'.join(skip_list)
+    # folder = 'wo_' + '_'.join(skip_list)
+    folder = "../victim_model"
     os.makedirs(folder, exist_ok=True)
     print(f"✓ Results will be saved to: {folder}/")
 
@@ -65,7 +72,7 @@ def main():
 
     print(f"✓ Training completed in {training_time / 60:.1f} minutes")
 
-    model_path = f'{folder}/best_model.pth'
+    model_path = f'{folder}/victim_model.pth'
     torch.save(model.state_dict(), model_path)
     print(f"✓ Model saved to: {model_path}")
 

@@ -22,14 +22,14 @@ class CNN_LSTM_Model(nn.Module):
             nn.ReLU(),
             nn.Conv2d(32, 32, kernel_size=(3, 3), padding=(1, 1)),
             nn.ReLU(),
-            nn.BatchNorm2d(32),
+            # nn.BatchNorm2d(32),   Taking out the batch norm and the Dropout to try to force overfitting
             nn.MaxPool2d((2, 2)),
 
             nn.Conv2d(32, 32, kernel_size=(3, 3), padding=(1, 1)),
             nn.ReLU(),
             nn.Conv2d(32, 32, kernel_size=(3, 3), padding=(1, 1)),
             nn.ReLU(),
-            nn.BatchNorm2d(32),
+            # nn.BatchNorm2d(32),
             nn.MaxPool2d((2, 2)),
 
             nn.Flatten()
@@ -48,7 +48,7 @@ class CNN_LSTM_Model(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(128 * 2, 128),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            # nn.Dropout(0.5),
             nn.Linear(128, 4)
         )
 
@@ -75,10 +75,11 @@ def train_model(train_loader, val_loader, device, model_architecture):
 
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.5, verbose=True)
 
-    num_epochs = 100
+    # Training the model for longer from 100 to 200 and increasing patience from 10 to 20
+    num_epochs = 200
     best_val_accuracy = 0.0
     best_model_wts = copy.deepcopy(model.state_dict())
-    patience = 10
+    patience = 20
     counter = 0
 
     print(f"Starting training with {len(train_loader)} training batches and {len(val_loader)} validation batches")

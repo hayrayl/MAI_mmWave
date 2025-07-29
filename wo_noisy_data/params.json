@@ -1,7 +1,6 @@
 {
   "shadow_architecture": "CNN_LSTM_Model",
-  "attack_architecture": "MLP",
-  "subset_size": 0.1,
-  "num_shadows": 3,
-  "attack_model_epochs": 5
+  "attack_architecture": "RandomForest",
+  "subset_size": 1.0,
+  "num_shadows": 12
 }

@@ -21,28 +21,33 @@ class HAR_Dataset(Dataset):
 
 def load_data(skip_list):
 
-    doc = np.load('./mmWaveHAR4/infocom24_dataset.npz')
-    data, labels = doc['data'], doc['label']
+    # doc = np.load('./mmWaveHAR4/infocom24_dataset.npz')
+    # I changed this to our dataset that we created -Hay
+    doc = np.load('./data_sets/npy_0.npz')
+    data, labels = doc['data'], doc['labels']
 
-    mapping = {'push': 0, 'pull': 1, 'clockwise': 2, 'anticlockwise': 3}
+    # mapping = {'push': 0, 'pull': 1, 'clockwise': 2, 'anticlockwise': 3}
+    #
+    #
+    # filtered_data = []
+    # filtered_labels = []
+    #
+    # i = 0
+    # for d, l in zip(data, labels):
+    #     #if i >= 1080:
+    #     #    break
+    #     if l in mapping and l not in skip_list:
+    #         filtered_data.append(d)
+    #         filtered_labels.append(mapping[l])
+    #     i += 1
+    #
+    # filtered_data = np.array(filtered_data)
+    # filtered_labels = np.array(filtered_labels)
 
-
-    filtered_data = []
-    filtered_labels = []
-
-    i = 0
-    for d, l in zip(data, labels):
-        #if i >= 1080:
-        #    break
-        if l in mapping and l not in skip_list:
-            filtered_data.append(d)
-            filtered_labels.append(mapping[l])
-        i += 1
-
-    filtered_data = np.array(filtered_data)
-    filtered_labels = np.array(filtered_labels)
-
-
+    # We are now already mapping in when we create the .npz files
+    # The data is already filtered and labels are already numeric.
+    filtered_data = np.array(data)
+    filtered_labels = np.array(labels)
 
 
     x_temp, x_test, y_temp, y_test = train_test_split(

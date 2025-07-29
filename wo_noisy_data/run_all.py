@@ -73,7 +73,7 @@ def get_user_input():
 
 def check_required_files():
     """Checks if all necessary files for the attack exist in the current directory."""
-    required_files = ['../target_model.pth', '../attack_on_target_dataset.npz', '../mmWaveHAR4/infocom24_dataset.npz']
+    required_files = ['../victim_model.pth', '../attack_on_victim_dataset.npz']
     missing_files = [f for f in required_files if not os.path.exists(f)]
 
     if missing_files:

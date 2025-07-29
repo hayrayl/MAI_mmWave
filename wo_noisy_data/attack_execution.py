@@ -20,7 +20,7 @@ def main():
 
     # --- 1. Define File Paths ---
     attack_model_path = "attack_model.pkl"
-    target_dataset_path = "../attack_on_target_dataset.npz"
+    target_dataset_path = "../attack_on_victim_dataset.npz"
 
     # --- 2. Load the Trained Attack Model ---
     if not os.path.exists(attack_model_path):

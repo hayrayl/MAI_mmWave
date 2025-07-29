@@ -9,26 +9,25 @@ from mmWaveHAR4.data_loader import HAR_Dataset
 from mmWaveHAR4.model_trainer import CNN_LSTM_Model, train_model
 
 
-def load_raw_data(filepath='../mmWaveHAR4/infocom24_dataset.npz'):
-    """Loads and pre-processes the raw dataset from a given path."""
+def load_raw_data(filepath='../data_sets/npy_0.npz'):
+    """Loads a pre-processed dataset with numeric labels."""
     print("##################### LOADING RAW DATA #####################")
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Dataset '{filepath}' not found. Please ensure the path is correct.")
 
+    # Load the data and numeric labels directly
     with np.load(filepath) as doc:
-        data, raw_labels = doc['data'], doc['label']
+        data = doc['data']
+        # Ensure you use the correct key for your labels, likely 'labels'
+        labels = doc['labels']
 
-    # Map string labels to integers
-    label_map = {'push': 0, 'pull': 1, 'clockwise': 2, 'anticlockwise': 3}
-    filtered_data, mapped_labels = [], []
+    filtered_data = np.array(data)
+    mapped_labels = np.array(labels)
 
-    for d, l in zip(data, raw_labels):
-        if l in label_map:
-            filtered_data.append(d)
-            mapped_labels.append(label_map[l])
+    # Check that data was loaded successfully
+    if len(filtered_data) == 0:
+         raise ValueError(f"No data loaded from '{filepath}'. The file might be empty or structured incorrectly.")
 
-    filtered_data = np.array(filtered_data)
-    mapped_labels = np.array(mapped_labels)
     print(f"Data shape: {filtered_data.shape}, Labels shape: {mapped_labels.shape}")
     print("##################### RAW DATA LOADED #####################\n")
     return filtered_data, mapped_labels
