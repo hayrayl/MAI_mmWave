@@ -71,11 +71,28 @@ def extract_softmax_features(model, data, labels, member_flags, device='cpu'):
     return np.array(features), np.array(membership_labels)
 
 
-def generate_shadow_attack_data(data_pool, labels_pool, num_shadows, device, model_architecture):
+def generate_shadow_attack_data(data_pool, labels_pool, num_shadows, device, model_architecture, perturb, noise):
     """
     Trains multiple shadow models and generates a dataset for the membership inference attack.
     This version uses a clean split of data for members and non-members.
     """
+
+    additional_non_member_files = [
+        '../data_sets/npy_neg30.npz',
+        '../data_sets/npy_pos30.npz'
+    ]
+
+    additional_data_list = []
+    additional_labels_list = []
+    for f in additional_non_member_files:
+        print(f"  - Loading {f}...")
+        with np.load(f) as doc:
+            additional_data_list.append(doc['data'])
+            additional_labels_list.append(doc['labels'])
+
+    additional_data = np.concatenate(additional_data_list, axis=0)
+    additional_labels = np.concatenate(additional_labels_list, axis=0)
+
     all_features = []
     all_membership_labels = []
 
@@ -88,9 +105,22 @@ def generate_shadow_attack_data(data_pool, labels_pool, num_shadows, device, mod
         # 'shadow_train_data' will be the "members" for this shadow model.
         # 'shadow_out_data' will be the "non-members".
         shadow_train_data, shadow_out_data, shadow_train_labels, shadow_out_labels = train_test_split(
-            data_pool, labels_pool, test_size=0.5, stratify=labels_pool, random_state=42 + i
+            data_pool, labels_pool, test_size=0.10, stratify=labels_pool, random_state=42 + i
         )
         print(f"  - Member set size: {len(shadow_train_data)}, Non-member set size: {len(shadow_out_data)}")
+
+        print("noising train dataset")
+        dshape = shadow_train_data.shape
+        total_features = dshape[2] * dshape[3]
+        noise_features = int(total_features * perturb)
+        for i in range(dshape[0]):
+            flat_inds = np.random.choice(total_features, noise_features, replace=False)
+            x, y, z = np.unravel_index(flat_inds, (dshape[1], dshape[2], dshape[3]))
+
+            for j in range(noise_features):
+                fudgefactor = np.random.uniform(-noise, noise)
+                shadow_train_data[i, x[j], y[j], z[j]] *= (1 + fudgefactor)
+        print("finished noising training dataset")
 
         # 2. Prepare DataLoaders for the "member" set to train the shadow model.
         # A further split is needed for a validation set during the model training phase.
@@ -111,13 +141,13 @@ def generate_shadow_attack_data(data_pool, labels_pool, num_shadows, device, mod
         print("  - Extracting features...")
 
         # Combine the member and non-member data to extract features in one pass
-        combined_data = np.concatenate([shadow_train_data, shadow_out_data])
-        combined_labels = np.concatenate([shadow_train_labels, shadow_out_labels])
+        combined_data = np.concatenate([shadow_train_data, additional_data])
+        combined_labels = np.concatenate([shadow_train_labels, additional_labels])
 
         # Create flags to label the data: 1 for members, 0 for non-members
         member_flags = np.concatenate([
             np.ones(len(shadow_train_data), dtype=int),
-            np.zeros(len(shadow_out_data), dtype=int)
+            np.zeros(len(additional_data), dtype=int)
         ])
 
         features, membership_labels = extract_softmax_features(
@@ -154,6 +184,8 @@ def main():
 
     subset_frac = params.get('subset_size', 0.8)
     num_shadows = params.get('num_shadows', 16)
+    perturb_fraction = params.get('perturb_fraction', 0.2)
+    noise = params.get('noise_fraction', 0.05)
     print(f"\u2713 Loaded parameters: {num_shadows} shadow models, {subset_frac * 100}% subset size.")
 
     # Load the full dataset
@@ -180,7 +212,9 @@ def main():
         labels_pool=labels_pool,
         num_shadows=num_shadows,
         device=device,
-        model_architecture=CNN_LSTM_Model  # Pass the model class itself
+        model_architecture=CNN_LSTM_Model,  # Pass the model class itself
+        perturb=perturb_fraction,
+        noise=noise,
     )
 
     # Save the final dataset to a file, overwriting if it exists

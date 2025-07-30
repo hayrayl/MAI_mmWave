@@ -68,7 +68,10 @@ def get_user_input():
         except ValueError:
             print("Error: Invalid input. Please enter an integer.")
 
-    return subset_fraction, num_shadows, attack_model_name, attack_model_epochs
+    notes = input("Any additional notes go here: ")
+
+
+    return subset_fraction, num_shadows, attack_model_name, attack_model_epochs, notes
 
 
 def check_required_files():
@@ -93,7 +96,7 @@ def save_results_to_csv(params, results):
     file_exists = os.path.isfile(filepath)
 
     fieldnames = ['timestamp', 'attack_model', 'attack_model_epochs', 'num_shadow_models', 'subset_fraction',
-                  'attack_accuracy', 'attack_auc']
+                  'attack_accuracy', 'attack_auc', 'notes']
 
     with open(filepath, 'a', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -108,7 +111,8 @@ def save_results_to_csv(params, results):
             'num_shadow_models': params['num_shadows'],
             'subset_fraction': params['subset_fraction'],
             'attack_accuracy': results['accuracy'],
-            'attack_auc': results['auc']
+            'attack_auc': results['auc'],
+            'notes': params['notes']
         }
         writer.writerow(row_data)
 
@@ -125,7 +129,7 @@ def run_attack_pipeline():
     if not check_required_files():
         sys.exit(1)
 
-    subset_fraction, num_shadows, attack_model_name, attack_model_epochs = get_user_input()
+    subset_fraction, num_shadows, attack_model_name, attack_model_epochs, notes = get_user_input()
 
     params_path = 'params.json'
     print(f"\nUpdating '{params_path}' with your configuration...")
@@ -190,7 +194,8 @@ def run_attack_pipeline():
             'num_shadows': num_shadows,
             'subset_fraction': subset_fraction,
             'attack_architecture': attack_model_name,
-            'attack_model_epochs': attack_model_epochs
+            'attack_model_epochs': attack_model_epochs,
+            'notes':notes
         }
         save_results_to_csv(run_params, final_results)
 

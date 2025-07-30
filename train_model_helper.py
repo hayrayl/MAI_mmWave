@@ -23,7 +23,7 @@ def extract_softmax_features(model, data, labels, member_flags, device='cpu'):
         for batch_x, _ in loader:
             batch_x = batch_x.to(device)  # Move batch to device
             outputs = model(batch_x)  # Get model logits
-            probs = outputs.cpu().numpy()  # Convert logits to softmax probabilities
+            probs = torch.nn.functional.softmax(outputs, dim=1).cpu().numpy()
             features.extend(probs.tolist())  # Store softmax vectors
             membership_labels.extend(member_flags[i:i + len(batch_x)])  # Store corresponding membership labels
             i += len(batch_x)  # Update index
@@ -71,19 +71,19 @@ def main():
     print("\n[4] Preparing final dataset for attack evaluation...")
 
     # Combine the original test set with the additional data to form the full non-member pool
-    all_non_member_data = np.concatenate([x_test, additional_data])
-    all_non_member_labels = np.concatenate([y_test, additional_labels])
+    #all_non_member_data = np.concatenate([additional_data])
+    #all_non_member_labels = np.concatenate([additional_labels])
 
     # Combine members and the new, larger pool of non-members
-    final_test_data = np.concatenate([x_train, all_non_member_data])
-    final_test_labels = np.concatenate([y_train, all_non_member_labels])
+    final_test_data = np.concatenate([x_train, additional_data])
+    final_test_labels = np.concatenate([y_train, additional_labels])
 
     # Create the ground truth membership flags
     member_flags = np.concatenate([
         np.ones(len(x_train), dtype=int),  # Members
-        np.zeros(len(all_non_member_data), dtype=int)  # Non-Members
+        np.zeros(len(additional_data), dtype=int)  # Non-Members
     ])
-    print(f"  - Final test set: {len(x_train)} members and {len(all_non_member_data)} non-members.")
+    print(f"  - Final test set: {len(x_train)} members and {len(additional_data)} non-members.")
 
     # --- 5. Extract features from the victim model ---
     print("\n[5] Extracting features from victim model...")
@@ -99,6 +99,9 @@ def main():
     np.savez_compressed(save_path, features=features, labels=labels)
     print(f"\n\u2713 Extracted features shape: {features.shape}")
     print(f"\u2713 Saved final test dataset to: {save_path}")
+
+
+
 
 
 # def main():

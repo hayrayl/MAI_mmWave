@@ -46,6 +46,7 @@ def load_data(skip_list):
 
     # We are now already mapping in when we create the .npz files
     # The data is already filtered and labels are already numeric.
+    # We just need to ensure they are numpy arrays.
     filtered_data = np.array(data)
     filtered_labels = np.array(labels)
 
