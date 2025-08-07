@@ -23,3 +23,6 @@ This research examines how membership inference attacks can compromise user priv
 - Analyze the privacy risks associated with mmWave sensing in different application domains
 - Develop and test MIA techniques specifically tailored for mmWave data characteristics
 - Propose potential mitigation strategies to enhance privacy protection
+
+## Code 
+Generate_Targets.py: trains the Human Activity Recognition (HAR) Model that will be targeted for the membership inference attack. 
